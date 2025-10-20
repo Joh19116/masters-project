@@ -5,7 +5,7 @@
 #
 #           The range is determined by two constraints:
 #           (1) desired baseline prevalence (how rare the event is)
-#           (2) maximum acceptable missingness (probabilities > 1)
+#           (2) maximum acceptable "missingness" (probabilities > 1)
 #
 # Returns  : Numeric vector of μ values evenly spaced between μ_min and μ_max
 # -------------------------------------------------------------------
@@ -13,9 +13,9 @@
 get_mu_range <- function(
   prevalence,        # target average outcome probability (e.g., 0.03)
   max_missing = 0.05,# acceptable proportion of invalid probs (e.g., 5%)
-  tau = 1,           # SD of random cluster effects (controls ICC)
+  tau = 1,           # SD of random cluster effects
   delta = 0.5,       # treatment effect size (log scale)
-  cluster_level_mean = 0, # mean of random effects (usually 0)
+  cluster_level_mean = 0, # mean of random effects
   n_mu = 10          # how many μ values to return (e.g., 10, 20)
 ) {
   # ---- 1. Validate inputs -----------------------------------------
@@ -35,27 +35,25 @@ get_mu_range <- function(
     stop("`n_mu` must be an integer >= 2.")
   
   # ---- 2. Critical value for Normal tail --------------------------
-  # For example, if max_missing = 0.05 → z = 1.645
+  # For example, if max_missing = is 5% ->  0.05 -> z = 1.645
+  #
   z <- qnorm(1 - max_missing)
   
   # ---- 3. Compute lower bound (μ_min) -----------------------------
   # Ensures the baseline (control) outcome has the desired average prevalence.
-  #
-  # Recall:  E[p_control] ≈ exp(μ + ½τ²)
-  # Rearranged:  μ = log(prevalence) - ½τ²
   #
   mu_min <- log(prevalence) - 0.5 * tau^2
   
   # ---- 4. Compute upper bound (μ_max) -----------------------------
   # Ensures the proportion of invalid probabilities (η > 0) ≤ max_missing.
   #
-  # Missingness occurs when η = μ + δX + α > 0.
+  # "Missingness" occurs when η = μ + δX + α > 0.
   # To keep that ≤ ε for the worst arm (usually treatment if δ > 0):
   # μ ≤ -δ - cluster_level_mean - z * τ
   #
   mu_max <- -max(0, delta) - cluster_level_mean - z * tau
   
-  # ---- 5. Check for logical consistency ---------------------------
+  # ---- 5. Check ----------------------------------------------------
   if (mu_min > mu_max) {
     warning("For the chosen inputs, μ_min > μ_max. 
              Try reducing tau or increasing acceptable missingness.")

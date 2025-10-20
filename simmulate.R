@@ -1,173 +1,157 @@
+# -------------------------------------------------------------------
+# Title   : Simulation Study for Cluster Randomized Trials
+# Purpose : Evaluate model performance (log vs blended log–logit links)
+#            in estimating treatment effects under varying ICC, 
+#            cluster sizes, and baseline prevalences.
+# Framework: SimEngine
+# -------------------------------------------------------------------
 
-
-
+# ---- Load required packages ---------------------------------------
 library(SimEngine)
+library(lme4)
 library(magrittr)
 
-source("getData.R")
-source("getModel.R")
-source("getMu.R")
+# ---- Source custom functions --------------------------------------
+# Each file contains a function used in the simulation workflow.
+source("Functions/getData.R")     # Data generation (get_data)
+source("Functions/getModel.R")    # Model fitting functions
+source("Functions/getMu.R")       # μ range generation (get_mu_range)
+source("Functions")               # Other helper functions (if any)
 
+# ---- Initialize simulation engine ---------------------------------
 sim <- new_sim()
 
-
-# Helper: convert ICC -> tau (for logit link)
-
+# -------------------------------------------------------------------
+# Helper: Convert ICC -> τ (random intercept SD)
+# -------------------------------------------------------------------
+# For a given ICC, we can approximate τ using:
+#   ICC = τ² / (τ² + σ²)
+# Assuming σ² ≈ 1 on the link scale, 
+#   τ = sqrt(ICC / (1 - ICC))
+# If ICC <= 0, set τ = 0.
 icc_to_tau <- function(icc) {
   if (icc <= 0) return(0)
   sqrt(icc / (1 - icc))
 }
 
-# Define simulation levels
+# -------------------------------------------------------------------
+# Define simulation levels (factorial design)
+# -------------------------------------------------------------------
+# Each combination of these levels defines a simulation scenario.
 sim %<>% set_levels(
-  n_clusters   = c(10, 100),
-  cluster_size = c(10, 500),
-  icc          = c(0.01, 0.2),
-  mu           = get_mu_range(prevalence = 0.05),
-  model_type   = c("log", "blended")
+  n_clusters   = c(10, 100),         # number of clusters
+  cluster_size = c(10, 500),         # individuals per cluster
+  icc          = c(0.01, 0.2),       # intraclass correlation values
+  mu           = get_mu_range(prevalence = 0.05),  # baseline μ values
+  model_type   = c("log", "blended") # link function type
 )
 
+# Inspect the full design grid
 sim
 
-
+# -------------------------------------------------------------------
+# Define the simulation script
+# -------------------------------------------------------------------
+# For each combination of levels above:
+#   1. Compute τ from ICC
+#   2. Generate data using get_data()
+#   3. Fit either the log-link or blended-link model
+#   4. Return estimates and convergence info
 sim %<>% set_script(function() {
-  # Convert ICC to tau
+  
+  # ---- Convert ICC to τ --------------------------------------------
   tau_val <- icc_to_tau(L$icc)
   
-  
-  # Generate data
+  # ---- Generate simulated CRT data ---------------------------------
   dat <- get_data(
     n_clusters = L$n_clusters,
     cluster_size = L$cluster_size,
     tau = tau_val,
     mu = L$mu,
-    delta = 0.5,
-    link = "log"
+    delta = 0.5,      # true treatment effect on link scale
+    link = "log"      # data always generated under log link
   )
   
-  # ---- Model fitting ----
+  # ---- Fit the appropriate model -----------------------------------
   if (L$model_type == "log") {
     res <- analyze_glmm(dat)
   } else if (L$model_type == "blended") {
     res <- analyze_glmm_blended(dat)
   }
   
-  # Return results
+  # ---- Return simulation outputs -----------------------------------
   return(list(
-    delta_hat = res$delta_hat,
-    se        = res$se,
-    conv      = res$conv
+    delta_hat = res$delta_hat,  # estimated treatment effect
+    se        = res$se,         # standard error
+    conv      = res$conv        # convergence indicator
   ))
 })
 
+# -------------------------------------------------------------------
+# Simulation configuration
+# -------------------------------------------------------------------
+# num_sim : number of replications per scenario
+# packages: ensure lme4 is available to worker processes
 sim %<>% set_config(
-  num_sim  = 10,                     
+  num_sim  = 10,
   packages = c("lme4")
 )
 
+# Inspect simulation structure before running
 sim
 
-
-
-
-
+# -------------------------------------------------------------------
+# Run simulations
+# -------------------------------------------------------------------
+# Executes all level combinations (grid × repetitions)
 sim %<>% run()
 
+# -------------------------------------------------------------------
+# Save results
+# -------------------------------------------------------------------
+saveRDS(sim, file = "sim6_results(insert short description here).rds")
 
-# Save the sim object
-saveRDS(sim, file = "sim5_results(small run log and blended).rds")
-
-
-
-
+# -------------------------------------------------------------------
+# Summarize simulation results
+# -------------------------------------------------------------------
+# true_delta : known effect size used for generating data
+# Compute bias, variance, MSE, and CI coverage for δ̂ by model type.
+# (Uncomment and define `true_delta` if needed)
 # true_delta <- 0.5
 
 summary_tbl <- sim %>% summarize(
-  list(stat = "bias",     estimate = "delta_hat", truth = true_delta, name = "bias_delta", by = "model_type"),
-  list(stat = "var",      x        = "delta_hat",                   name = "var_delta", by = "model_type"),
-  list(stat = "mse",      estimate = "delta_hat", truth = true_delta, name = "mse_delta", by = "model_type"),
-  list(stat = "coverage", estimate = "delta_hat", se = "se", truth = true_delta, name = "ci_coverage", by = "model_type")
+  list(stat = "bias",     estimate = "delta_hat", truth = true_delta,
+       name = "bias_delta", by = "model_type"),
+  list(stat = "var",      x = "delta_hat",
+       name = "var_delta", by = "model_type"),
+  list(stat = "mse",      estimate = "delta_hat", truth = true_delta,
+       name = "mse_delta", by = "model_type"),
+  list(stat = "coverage", estimate = "delta_hat", se = "se", truth = true_delta,
+       name = "ci_coverage", by = "model_type")
 )
 
-# 
-# # --- helper functions for Monte Carlo SEs ---
-# mcse_bias <- function(est, true) {
-#   sqrt(var(est - true) / length(est))
-# }
-# 
-# mcse_var <- function(est) {
-#   # empirical variance of the variance estimator
-#   # note: var(est) is the variance of the estimates across sims
-#   # multiply by 2/(nsim-1) following Morris et al. (2019)
-#   sqrt(2 * (var(est)^2) / (length(est) - 1))
-# }
-# 
-# mcse_mse <- function(est, true) {
-#   # Monte Carlo SE for MSE = sqrt(Var((est - true)^2)/nsim)
-#   sqrt(var((est - true)^2) / length(est))
-# }
-# 
-# mcse_coverage <- function(in_ci) {
-#   # in_ci = logical vector, TRUE if CI covers truth
-#   p_hat <- mean(in_ci)
-#   sqrt(p_hat * (1 - p_hat) / length(in_ci))
-# }
-# 
-# # --- main summary table with Monte Carlo SEs ---
-# summary_tbl <- sim %>%
-#   summarize(
-#     list(
-#       stat = "bias",
-#       estimate = "delta_hat",
-#       truth = true_delta,
-#       name = "bias_delta",
-#       mcse = mcse_bias(.data$delta_hat, true_delta)
-#     ),
-#     list(
-#       stat = "var",
-#       x = "delta_hat",
-#       name = "var_delta",
-#       mcse = mcse_var(.data$delta_hat)
-#     ),
-#     list(
-#       stat = "mse",
-#       estimate = "delta_hat",
-#       truth = true_delta,
-#       name = "mse_delta",
-#       mcse = mcse_mse(.data$delta_hat, true_delta)
-#     ),
-#     list(
-#       stat = "coverage",
-#       estimate = "delta_hat",
-#       se = "se",
-#       truth = true_delta,
-#       name = "ci_coverage",
-#       mcse = mcse_coverage(
-#         (.data$delta_hat - 1.96 * .data$se <= true_delta) &
-#           (.data$delta_hat + 1.96 * .data$se >= true_delta)
-#       )
-#     )
-#   )
-
-
-
-
-
-
-
-# Add convergence rate manually:
+# -------------------------------------------------------------------
+# Calculate convergence rate per scenario
+# -------------------------------------------------------------------
 conv_tbl <- sim$results %>%
   dplyr::group_by(level_id) %>%
   dplyr::summarise(conv_rate = mean(conv, na.rm = TRUE))
 
-# Merge back into summary
+# Merge convergence results into summary table
 summary_tbl <- dplyr::left_join(summary_tbl, conv_tbl, by = "level_id")
 
+# Inspect combined results
 summary_tbl
 
+# -------------------------------------------------------------------
+# Add tao back to the table if desired
+# -------------------------------------------------------------------
+# Compute τ from ICC for plotting
+# Compute mean outcome prevalence from μ (E[p] = exp(μ + ½τ²))
 summary_tbl <- summary_tbl %>%
   mutate(tau = sqrt(icc / (1 - icc)),
          mean_outcome = exp(mu + 0.5 * tau^2))
+
 
 
 

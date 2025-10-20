@@ -80,7 +80,7 @@ saveRDS(sim, file = "sim5_results(small run log and blended).rds")
 
 
 
-true_delta <- 0.5
+# true_delta <- 0.5
 
 summary_tbl <- sim %>% summarize(
   list(stat = "bias",     estimate = "delta_hat", truth = true_delta, name = "bias_delta", by = "model_type"),

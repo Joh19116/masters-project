@@ -4,7 +4,7 @@
 #           log link to simulated CRT data using lme4::glmer().
 #
 #           The model includes:
-#             outcome ~ treatment + (1 | cluster)
+#             outcome ~ treatment + sex + cont_cov +(1 | cluster)
 #           where cluster is a random intercept.
 #
 #           This function extracts the treatment effect estimate (δ̂),
@@ -28,7 +28,7 @@
 
 analyze_glmm <- function(dat) {
   fit <- tryCatch(
-    glmer(outcome ~ treatment + (1 | cluster),
+    glmer(outcome ~ treatment + sex + cont_cov + (1 | cluster),
           data = dat,
           family = binomial(link = "log"),
           control = glmerControl(optimizer = "bobyqa")),
@@ -75,7 +75,7 @@ analyze_glmm <- function(dat) {
 
 analyze_glmm_blended <- function(dat) {
   fit <- tryCatch(
-    glmer(outcome ~ treatment + (1 | cluster),
+    glmer(outcome ~ treatment + sex + cont_cov + (1 | cluster),
           data = dat,
           family = binomial(link = blended_link(K = log(0.8))),
           control = glmerControl(optimizer = "bobyqa")),

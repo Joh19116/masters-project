@@ -10,13 +10,13 @@
 library(SimEngine)
 library(lme4)
 library(magrittr)
+library(truncnorm)
 
 # ---- Source custom functions --------------------------------------
 # Each file contains a function used in the simulation workflow.
 source("Functions/getData.R")     # Data generation (get_data)
 source("Functions/getModel.R")    # Model fitting functions
 source("Functions/getMu.R")       # μ range generation (get_mu_range)
-source("Functions")               # Other helper functions (if any)
 
 # ---- Initialize simulation engine ---------------------------------
 sim <- new_sim()
@@ -39,9 +39,9 @@ icc_to_tau <- function(icc) {
 # -------------------------------------------------------------------
 # Each combination of these levels defines a simulation scenario.
 sim %<>% set_levels(
-  n_clusters   = c(10, 100),         # number of clusters
-  cluster_size = c(10, 500),         # individuals per cluster
-  icc          = c(0.01, 0.2),       # intraclass correlation values
+  n_clusters   = c(10,25, 75, 100),         # number of clusters
+  cluster_size = c(10, 20, 50, 100, 500),         # individuals per cluster
+  icc          = c(0.01, 0.05, 0.1, 0.15, 0.2),       # intraclass correlation values
   mu           = get_mu_range(prevalence = 0.05),  # baseline μ values
   model_type   = c("log", "blended") # link function type
 )
@@ -93,8 +93,9 @@ sim %<>% set_script(function() {
 # num_sim : number of replications per scenario
 # packages: ensure lme4 is available to worker processes
 sim %<>% set_config(
-  num_sim  = 10,
-  packages = c("lme4")
+  num_sim  = 100,
+  packages = c("lme4"),
+  n_cores = 4
 )
 
 # Inspect simulation structure before running
@@ -109,48 +110,51 @@ sim %<>% run()
 # -------------------------------------------------------------------
 # Save results
 # -------------------------------------------------------------------
-saveRDS(sim, file = "sim6_results(insert short description here).rds")
-
-# -------------------------------------------------------------------
-# Summarize simulation results
-# -------------------------------------------------------------------
+saveRDS(sim, file = "results/sim9_results(test with covs).rds")
+# 
+# # -------------------------------------------------------------------
+# # Summarize simulation results
+# # -------------------------------------------------------------------
 # true_delta : known effect size used for generating data
 # Compute bias, variance, MSE, and CI coverage for δ̂ by model type.
 # (Uncomment and define `true_delta` if needed)
-# true_delta <- 0.5
-
-summary_tbl <- sim %>% summarize(
-  list(stat = "bias",     estimate = "delta_hat", truth = true_delta,
-       name = "bias_delta", by = "model_type"),
-  list(stat = "var",      x = "delta_hat",
-       name = "var_delta", by = "model_type"),
-  list(stat = "mse",      estimate = "delta_hat", truth = true_delta,
-       name = "mse_delta", by = "model_type"),
-  list(stat = "coverage", estimate = "delta_hat", se = "se", truth = true_delta,
-       name = "ci_coverage", by = "model_type")
-)
-
-# -------------------------------------------------------------------
-# Calculate convergence rate per scenario
-# -------------------------------------------------------------------
-conv_tbl <- sim$results %>%
-  dplyr::group_by(level_id) %>%
-  dplyr::summarise(conv_rate = mean(conv, na.rm = TRUE))
-
-# Merge convergence results into summary table
-summary_tbl <- dplyr::left_join(summary_tbl, conv_tbl, by = "level_id")
-
-# Inspect combined results
-summary_tbl
-
-# -------------------------------------------------------------------
-# Add tao back to the table if desired
-# -------------------------------------------------------------------
-# Compute τ from ICC for plotting
-# Compute mean outcome prevalence from μ (E[p] = exp(μ + ½τ²))
-summary_tbl <- summary_tbl %>%
-  mutate(tau = sqrt(icc / (1 - icc)),
-         mean_outcome = exp(mu + 0.5 * tau^2))
+# 
+# 
+# sim <- `sim7_results(test DCC)`
+#  true_delta <- 0.5
+# 
+# summary_tbl <- sim %>% summarize(
+#   list(stat = "bias",     estimate = "delta_hat", truth = true_delta,
+#        name = "bias_delta", by = "model_type"),
+#   list(stat = "var",      x = "delta_hat",
+#        name = "var_delta", by = "model_type"),
+#   list(stat = "mse",      estimate = "delta_hat", truth = true_delta,
+#        name = "mse_delta", by = "model_type"),
+#   list(stat = "coverage", estimate = "delta_hat", se = "se", truth = true_delta,
+#        name = "ci_coverage", by = "model_type")
+# )
+# 
+# # -------------------------------------------------------------------
+# # Calculate convergence rate per scenario
+# # -------------------------------------------------------------------
+# conv_tbl <- sim$results %>%
+#   dplyr::group_by(level_id) %>%
+#   dplyr::summarise(conv_rate = mean(conv, na.rm = TRUE))
+# 
+# # Merge convergence results into summary table
+# summary_tbl <- dplyr::left_join(summary_tbl, conv_tbl, by = "level_id")
+# 
+# # Inspect combined results
+# summary_tbl
+# 
+# # -------------------------------------------------------------------
+# # Add tao back to the table if desired
+# # -------------------------------------------------------------------
+# # Compute τ from ICC for plotting
+# # Compute mean outcome prevalence from μ (E[p] = exp(μ + ½τ²))
+# summary_tbl <- summary_tbl %>%
+#   mutate(tau = sqrt(icc / (1 - icc)),
+#          mean_outcome = exp(mu + 0.5 * tau^2))
 
 
 

@@ -26,8 +26,14 @@
 #     - treatment : cluster-level treatment indicator (0 = control, 1 = treated)
 #     - outcome   : binary outcome simulated from Bernoulli(p_ij)
 #     - eta       : linear predictor value (μ + δX + α)
+#     - sex       : random binary covariate (0 = male, 1 = female)
+#     - cont_cov  : random continuous covariate for the model truncated at -2 and 2
 #
 #   The object also contains attributes for simulation parameters
+# 
+# Libraries:
+#   Required libraries needed for the function to run:
+#       - library(truncnorm) - loaded in the simulation script
 # -------------------------------------------------------------------
 
 get_data <- function(
@@ -98,13 +104,24 @@ get_data <- function(
   n_obs   <- length(cluster_id)
   outcome <- stats::rbinom(n_obs, size = 1L, prob = p_ij)
   
+  ##----- Add Binary Gender covariate ---------------------------------------
+  # Create a new variable that assigns male or female to each observation
+  sex <- rbinom(n_clusters*cluster_size, 1, 0.5)
+  
+  ## ----- Add continuous covariate to data set ------------------------------
+  # Create a random continuous covariate for the data set taken from a standard
+  # normal distribution truncated at -2 and 2 
+  continous_covariate <- rtruncnorm(n_clusters*cluster_size, a = -2, b=2, 0, 1)
+  
   ## ---- Assemble data -----------------------------------------------------
   # Return data frame with all simulated quantities
   dat <- data.frame(
     cluster   = cluster_id,
     treatment = X_i,
     outcome   = outcome,
-    eta       = eta
+    eta       = eta,
+    sex       = factor(sex),
+    cont_cov  = as.numeric(continous_covariate)
   )
   
   ## ---- Attributes --------------------------------------------------------

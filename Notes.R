@@ -135,7 +135,7 @@ head(dat_binary)
 
 # People just might be more comfortagble with mixed models, which are more efficient 
 # How do we decide the choicde og cut off point K?
-# Covaraints 1 binary and 1 continou sfromt he noraml distribution 
+# Covaraints 1 binary and 1 continous from the noraml distribution 
 # Rtruncnorm at -2 and 2
 # Duke Compute cluster!!!! 
 # Github code as well

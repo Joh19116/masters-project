@@ -45,7 +45,7 @@ blended_link <- function(K = log(0.8)) {
   f1_prime <- function(eta) exp(eta)
   
   # f2'(η) = exp(η) / (1 + exp(η))^2
-  f2_prime <- function(eta) exp(eta) / (1 + exp(η))^2
+  f2_prime <- function(eta) exp(eta) / (1 + exp(eta))^2
   
   # Calculate corresponding η value for f2 that gives f1(K)
   eta2 <- f2_inv(f1K)

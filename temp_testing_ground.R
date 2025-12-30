@@ -32,69 +32,90 @@ ggplot(df, aes(x=X, y=Y)) + geom_line()
 
 
 
+library(dplyr)
+library(ggplot2)
 
-# --- helper function to compare eta distributions across two mu values ---
-plot_eta_comparison <- function(mu1 = -2, mu2 = 0, tau = 1, delta = 0.5,
-                                n_clusters = 20, cluster_size = 10) {
+# --- helper function to compare eta distributions at mu extremes ---
+plot_eta_mu_extremes <- function(
+    prevalence = 0.05,
+    tau = 1,
+    delta = 0.5,
+    n_clusters = 20,
+    cluster_size = 10
+) {
   
-  set.seed(123456789)
-  # Generate two datasets with different mu values
-  dat1 <- get_data(
+  set.seed(123455589)
+  
+  # Get mu range and extract extremes
+  mus <- get_mu_range(prevalence = prevalence)
+  mu_min <- min(mus)
+  mu_max <- max(mus)
+  
+  # Generate data at lower bound (safe / rare)
+  dat_min <- get_data(
     n_clusters = n_clusters,
     cluster_size = cluster_size,
     tau = tau,
-    mu = mu1,
+    mu = mu_min,
     delta = delta,
     link = "log"
-  )
+  ) %>%
+    mutate(mu_label = sprintf("mu_min = %.2f", mu_min))
   
-  dat2 <- get_data(
+  # Generate data at upper bound (edge of validity)
+  dat_max <- get_data(
     n_clusters = n_clusters,
     cluster_size = cluster_size,
     tau = tau,
-    mu = mu2,
+    mu = mu_max,
     delta = delta,
     link = "log"
-  )
+  ) %>%
+    mutate(mu_label = sprintf("mu_max = %.2f", mu_max))
   
-  # Add labels for which mu each dataset came from
-  dat1$mu_label <- sprintf("mu = %.2f", mu1)
-  dat2$mu_label <- sprintf("mu = %.2f", mu2)
+  # Combine
+  dat_all <- bind_rows(dat_min, dat_max)
   
-  # Combine the two datasets
-  dat_all <- dplyr::bind_rows(dat1, dat2)
+  # Quantify invalid probability rate
+  invalid_summary <- dat_all %>%
+    group_by(mu_label) %>%
+    summarise(
+      pct_eta_gt_0 = mean(eta > 0) * 100,
+      .groups = "drop"
+    )
   
-  # Compute NA rate (proportion of invalid outcomes) for each dataset
-  na_summary <- dat_all %>%
-    dplyr::group_by(mu_label) %>%
-    dplyr::summarise(na_rate = mean(is.na(outcome)) * 100)
+  print(invalid_summary)
   
-  print(na_summary)
-  
-  # Define the eta threshold corresponding to exp(eta) = 1.05 (5% over 1)
-  eta_cutoff <- log(1.05)
-  
-  # Plot the density comparison
+  # Plot
   ggplot(dat_all, aes(x = eta, fill = mu_label)) +
-    geom_density(alpha = 0.4) +
-    geom_vline(xintercept = eta_cutoff, color = "red", linetype = "dotted", linewidth = 1) +
-    annotate("text", x = eta_cutoff + 0.2, y = 0.25,
-             label = "exp(η) = 1.05 (5% > 1)", color = "red", hjust = 0) +
-    labs(
-      title = sprintf("Comparison of η Distributions (tau = %.2f, delta = %.2f)", tau, delta),
-      subtitle = sprintf("Red dotted line: 5%% missingness cutoff (exp(η) > 1)"),
-      x = expression(eta[i*j]),
-      y = "Density",
-      fill = "Mean (μ)"
+    geom_density(alpha = 0.4, color = "black") +
+    geom_vline(
+      xintercept = 0,
+      linetype = "dotted",
+      color = "red",
+      linewidth = 1
     ) +
+    annotate(
+      "text",
+      x = 0.05,
+      y = 0.25,
+      label = "eta = 0\n(exp(eta) = 1)",
+      color = "red",
+      hjust = 0
+    ) +
+    labs(
+      title = "η Distributions at Lower and Upper Bounds of μ",
+      subtitle = sprintf(
+        "Generated using get_mu_range(prevalence = %.2f)",
+        prevalence
+      ),
+      x = "Linear Predictor (eta)",
+      y = "Density",
+      fill = "Baseline Intercept (μ)"
+    ) +
+    coord_cartesian(xlim = c(-6, 2)) +
     theme_minimal(base_size = 14)
 }
 
-# Example usage:
-plot_eta_comparison(mu1 = mus[10], mu2 = -1, tau = 1, delta = 0.5)
-
-
-
-
-
-
+# --- run ---
+plot_eta_mu_extremes(prevalence = 0.05, tau = 1, delta = 0.5)

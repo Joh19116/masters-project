@@ -16,6 +16,8 @@ library(dplyr)
 source("Functions/getData.R")
 source("Functions/getModel.R")
 source("Functions/getMu.R")
+source("Functions/blended_link_function.R") # blended link function from Clark and Barr
+
 
 # ---- Helper: Convert ICC -> τ (random intercept SD) ----------------
 icc_to_tau <- function(icc) {
@@ -34,11 +36,11 @@ run_on_cluster(
     sim <- new_sim()
     
     sim %<>% set_levels(
-      n_clusters   = c(10, 25, 75, 100),
+      n_clusters   = c(10, 26, 76, 100),
       cluster_size = c(10, 20, 50, 100, 500),
       icc          = c(0.01, 0.05, 0.10, 0.15, 0.20),
       mu           = get_mu_range(prevalence = 0.05),
-      model_type   = c("log", "blended")  
+      model_type   = c("log", "blended") 
     )
     
     sim %<>% set_script(function() {
@@ -59,15 +61,21 @@ run_on_cluster(
         res <- analyze_glmm_blended(dat)
       }
       
+      # Normalize outputs so both model types return the same fields
       list(
-        delta_hat = res$delta_hat,
-        se        = res$se,
-        conv      = res$conv
+        delta_hat   = res$delta_hat,
+        se          = res$se,
+        conv        = res$conv,
+        singular    = if (!is.null(res$singular)) res$singular else NA,
+        dropped_trt = if (!is.null(res$dropped_trt)) res$dropped_trt else NA,
+        err         = if (!is.null(res$err)) res$err else NA_character_,
+        warn        = if (!is.null(res$warn)) res$warn else NA_character_
       )
     })
     
     sim %<>% set_config(
       num_sim  = 100,
+      parallel = TRUE,
       n_cores  = 20,        # Number of array jobs
       packages = c("lme4", "magrittr", "truncnorm")
     )
@@ -85,7 +93,7 @@ run_on_cluster(
   # LAST BLOCK: Save the full simulation object only
   # ================================================================
   last = {
-    saveRDS(sim, file = "results/sim_cluster_results.rds")
+    saveRDS(sim, file = "results/sim14_k0.9_results.rds")
   },
   
   cluster_config = list(js = "slurm")

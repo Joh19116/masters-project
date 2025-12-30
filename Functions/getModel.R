@@ -26,26 +26,88 @@
 # -------------------------------------------------------------------
 
 
-analyze_glmm <- function(dat) {
+analyze_glmm <- function(dat, tol_sing = 1e-4) {
+  
+  warn_msgs <- character(0)
+  
   fit <- tryCatch(
-    glmer(outcome ~ treatment + sex + cont_cov + (1 | cluster),
-          data = dat,
-          family = binomial(link = "log"),
-          control = glmerControl(optimizer = "bobyqa")),
-    error = function(e) return(NULL),
-    warning = function(w) invokeRestart("muffleWarning") # continue on warnings
+    withCallingHandlers(
+      lme4::glmer(
+        outcome ~ treatment + sex + cont_cov + (1 | cluster),
+        data = dat,
+        family  = stats::binomial(link = "log"),
+        control = lme4::glmerControl(optimizer = "bobyqa")
+      ),
+      warning = function(w) {
+        warn_msgs <<- c(warn_msgs, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    ),
+    error = function(e) e
   )
   
-  if (is.null(fit) || !is(fit, "glmerMod")) {
-    return(list(delta_hat = NA, se = NA, conv = FALSE))
+  # Hard failure
+  if (inherits(fit, "error") || is.null(fit) || !inherits(fit, "glmerMod")) {
+    return(list(
+      delta_hat   = NA_real_,
+      se          = NA_real_,
+      conv        = NA_integer_,
+      singular    = NA,
+      dropped_trt = NA,
+      err         = if (inherits(fit, "error")) conditionMessage(fit) else "fit was NULL/not glmerMod",
+      warn        = if (length(warn_msgs)) paste(unique(warn_msgs), collapse = " | ") else NA_character_
+    ))
   }
   
-  est  <- summary(fit)$coef["treatment", "Estimate"]
-  se   <- summary(fit)$coef["treatment", "Std. Error"]
-  conv <- is.null(fit@optinfo$conv$lme4$messages) # TRUE if no convergence msgs
+  # Diagnostics
+  singular <- lme4::isSingular(fit, tol = tol_sing)
+  conv <- fit@optinfo$conv$opt
+  if (is.null(conv) || length(conv) == 0) conv <- NA_integer_
+  conv <- as.integer(conv)
   
-  return(list(delta_hat = est, se = se, conv = conv))
-} 
+  
+  beta <- lme4::fixef(fit)
+  
+  if (!("treatment" %in% names(beta))) {
+    return(list(
+      delta_hat   = NA_real_,
+      se          = NA_real_,
+      conv        = conv,
+      singular    = singular,
+      dropped_trt = TRUE,
+      err         = paste0("treatment coefficient missing. fixef terms: ",
+                           paste(names(beta), collapse = ", ")),
+      warn        = if (length(warn_msgs)) paste(unique(warn_msgs), collapse = " | ") else NA_character_
+    ))
+  }
+  
+  V <- as.matrix(stats::vcov(fit))
+  if (!("treatment" %in% rownames(V))) {
+    return(list(
+      delta_hat   = unname(beta["treatment"]),
+      se          = NA_real_,
+      conv        = conv,
+      singular    = singular,
+      dropped_trt = FALSE,
+      err         = "vcov missing treatment row/col",
+      warn        = if (length(warn_msgs)) paste(unique(warn_msgs), collapse = " | ") else NA_character_
+    ))
+  }
+  
+  est <- unname(beta["treatment"])
+  se  <- sqrt(V["treatment", "treatment"])
+  
+  list(
+    delta_hat   = est,
+    se          = se,
+    conv        = conv,
+    singular    = singular,
+    dropped_trt = FALSE,
+    err         = NA_character_,
+    warn        = if (length(warn_msgs)) paste(unique(warn_msgs), collapse = " | ") else NA_character_
+  )
+}
+
 
 
 # -------------------------------------------------------------------
@@ -73,25 +135,91 @@ analyze_glmm <- function(dat) {
 #   - Errors return NULL; warnings are muted to allow batch runs.
 # -------------------------------------------------------------------
 
-analyze_glmm_blended <- function(dat) {
+analyze_glmm_blended <- function(dat, K = log(0.9), tol_sing = 1e-4) {
+  
+  # Fit model; capture warnings but do not spam logs
+  warn_msgs <- character(0)
+  
   fit <- tryCatch(
-    glmer(outcome ~ treatment + sex + cont_cov + (1 | cluster),
-          data = dat,
-          family = binomial(link = blended_link(K = log(0.8))),
-          control = glmerControl(optimizer = "bobyqa")),
-    error = function(e) return(NULL),
-    warning = function(w) invokeRestart("muffleWarning") # continue on warnings
+    withCallingHandlers(
+      lme4::glmer(
+        outcome ~ treatment + sex + cont_cov + (1 | cluster),
+        data = dat,
+        family  = stats::binomial(link = blended_link(K = K)),
+        control = lme4::glmerControl(optimizer = "bobyqa")
+      ),
+      warning = function(w) {
+        warn_msgs <<- c(warn_msgs, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    ),
+    error = function(e) e
   )
   
-  if (is.null(fit) || !is(fit, "glmerMod")) {
-    return(list(delta_hat = NA, se = NA, conv = FALSE))
+  # Hard failure (glmer threw an error)
+  if (inherits(fit, "error") || is.null(fit) || !inherits(fit, "glmerMod")) {
+    return(list(
+      delta_hat = NA_real_,
+      se        = NA_real_,
+      conv      = NA_integer_,
+      singular  = NA,
+      dropped_trt = NA,
+      err       = if (inherits(fit, "error")) conditionMessage(fit) else "fit was NULL/not glmerMod",
+      warn      = if (length(warn_msgs)) paste(unique(warn_msgs), collapse = " | ") else NA_character_
+    ))
   }
   
-  est  <- summary(fit)$coef["treatment", "Estimate"]
-  se   <- summary(fit)$coef["treatment", "Std. Error"]
-  conv <- is.null(fit@optinfo$conv$lme4$messages) # TRUE if no convergence msgs
+  # Diagnostics
+  singular <- lme4::isSingular(fit, tol = tol_sing)
+  conv <- fit@optinfo$conv$opt
+  if (is.null(conv) || length(conv) == 0) conv <- NA_integer_
+  conv <- as.integer(conv)
   
-  return(list(delta_hat = est, se = se, conv = conv))
+  
+  # Extract treatment effect robustly (avoid summary() rowname assumptions)
+  beta <- lme4::fixef(fit)
+  
+  # If treatment got dropped due to rank deficiency, it won't be in fixef()
+  if (!("treatment" %in% names(beta))) {
+    return(list(
+      delta_hat = NA_real_,
+      se        = NA_real_,
+      conv      = conv,
+      singular  = singular,
+      dropped_trt = TRUE,
+      err       = paste0("treatment coefficient missing. fixef terms: ",
+                         paste(names(beta), collapse = ", ")),
+      warn      = if (length(warn_msgs)) paste(unique(warn_msgs), collapse = " | ") else NA_character_
+    ))
+  }
+  
+  V <- as.matrix(stats::vcov(fit))
+  # Guard against vcov weirdness
+  if (!("treatment" %in% rownames(V))) {
+    return(list(
+      delta_hat = NA_real_,
+      se        = NA_real_,
+      conv      = conv,
+      singular  = singular,
+      dropped_trt = FALSE,
+      err       = "vcov missing treatment row/col",
+      warn      = if (length(warn_msgs)) paste(unique(warn_msgs), collapse = " | ") else NA_character_
+    ))
+  }
+  
+  est <- unname(beta["treatment"])
+  se  <- sqrt(V["treatment", "treatment"])
+  
+  list(
+    delta_hat = est,
+    se        = se,
+    conv      = conv,
+    singular  = singular,
+    dropped_trt = FALSE,
+    err       = NA_character_,
+    warn      = if (length(warn_msgs)) paste(unique(warn_msgs), collapse = " | ") else NA_character_
+  )
 }
+
 
                     

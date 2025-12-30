@@ -18,9 +18,7 @@ library(magrittr)
 # ---------------------------------------------------------------------------
 # Load Simulation Object
 # ---------------------------------------------------------------------------
-# Replace this with the actual object name or load from file if needed:
-# load("path/to/sim9_results.RData")
-sim <- `sim9_results(test with covs)`   # Simulation object produced by SimEngine
+sim <- sim_cluster_results   # Simulation object produced by SimEngine
 
 # Define the true parameter value used in data generation
 true_delta <- 0.5

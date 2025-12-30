@@ -6,7 +6,7 @@
 #           Below the cutoff point K, the function behaves like a 
 #           traditional log link:      μ = exp(η)
 #           Above K, it switches to a scaled logit link: 
-#                                        μ = exp(a + bη) / (1 + exp(a + bη))
+#                                      μ = exp(a + bη) / (1 + exp(a + bη))
 #
 #           Constants a and b are chosen to ensure continuity and
 #           smoothness (matching function value and slope) at η = K.
@@ -28,7 +28,7 @@
 #   e.g., glm(y ~ x, family = binomial(link = blended_link()))
 # -------------------------------------------------------------------
 
-blended_link <- function(K = log(0.8)) {
+blended_link <- function(K = log(0.9)) {
   #-------------------------------------------------------
   # Calculate a and b based on chosen cutoff K
   # f1(η) = exp(η)                   (log link inverse)

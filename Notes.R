@@ -139,3 +139,25 @@ head(dat_binary)
 # Rtruncnorm at -2 and 2
 # Duke Compute cluster!!!! 
 # Github code as well
+
+
+# parallel::detectCores() 
+# Sim$results look at this for bugs
+# NA.RM = TRUE look at this for the summary sim$results 
+# Look at % of NA results as well < 5%
+# Start using browser, debug and undebug functions to figure out where the NA
+# Run a sim (pic an replicate with NA) and put a brower right before we resurnt the results in the simulation script and see whats going on 
+# is one thing NA that is making the rest of the results NA or are they all NA
+# if (is.na(variable)) { browser() } 
+# debugg on the laptop 
+# why does the log link convergence rise when mu increases 
+# Bias and coverage! 
+# monte Carlo Standard errors in the summarize function, be prepared to answer a question about it if you include it
+# K cutoff, should we ever use K less than like 0.999, bump it up to at least 0.9
+
+# shoot email to advisory panel last week of feb and first week of march using the meet thing
+# progress report not jan 16 or 19th
+
+
+# 2835 NA vlaues for delta hat in the data
+# However ther are 3059 error messages

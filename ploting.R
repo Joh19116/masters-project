@@ -20,8 +20,8 @@ library(ggplot2)
 
 # Filter to your scenario of interest
 plot_tbl <- summary_tbl %>%
-  dplyr::filter(n_clusters == 10,
-         cluster_size == 10,
+  dplyr::filter(n_clusters == 26,
+         cluster_size == 100,
          icc == 0.01)
 
 # Make the plot
@@ -130,6 +130,45 @@ ggplot(summary_tbl, aes(
     legend.key.width = unit(1.2, "cm")
   )
 
+
+library(ggplot2)
+library(dplyr)
+
+# Select log-link results only
+log_results <- summary_tbl %>%
+  filter(model_type == "log")
+
+# Pick 4 parameter sets to illustrate the range
+selected_sets <- log_results %>%
+  filter(
+    (n_clusters == 10 & cluster_size == 10 & icc == 0.01) |
+      (n_clusters == 100 & cluster_size == 10 & icc == 0.20) |
+      (n_clusters == 10 & cluster_size == 500 & icc == 0.05) |
+      (n_clusters == 100 & cluster_size == 100 & icc == 0.10)
+  ) %>%
+  mutate(
+    param_label = paste0(
+      "n_clusters=", n_clusters,
+      ", cluster_size=", cluster_size,
+      ", ICC=", icc
+    )
+  )
+
+# Plot them together, faceted by parameter set
+ggplot(selected_sets, aes(x = mu, y = conv_rate)) +
+  geom_point(size = 2) +
+  geom_line(linewidth = 0.9) +
+  facet_wrap(~ param_label, ncol = 2) +
+  labs(
+    title = "Convergence Rate vs μ (Log Link)",
+    x = expression(mu),
+    y = "Convergence Rate"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    strip.text = element_text(size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
 
 
 

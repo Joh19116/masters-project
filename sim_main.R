@@ -17,6 +17,7 @@ library(truncnorm)
 source("Functions/getData.R")     # Data generation (get_data)
 source("Functions/getModel.R")    # Model fitting functions
 source("Functions/getMu.R")       # μ range generation (get_mu_range)
+source("Functions/blended_link_function.R") # blended link function from Clark and Barr
 
 # ---- Initialize simulation engine ---------------------------------
 sim <- new_sim()
@@ -39,11 +40,11 @@ icc_to_tau <- function(icc) {
 # -------------------------------------------------------------------
 # Each combination of these levels defines a simulation scenario.
 sim %<>% set_levels(
-  n_clusters   = c(10,25, 75, 100),         # number of clusters
-  cluster_size = c(10, 20, 50, 100, 500),         # individuals per cluster
-  icc          = c(0.01, 0.05, 0.1, 0.15, 0.2),       # intraclass correlation values
-  mu           = get_mu_range(prevalence = 0.05),  # baseline μ values
-  model_type   = c("log", "blended") # link function type
+  n_clusters   = 10, #c(10,26, 76, 100),         # number of clusters
+  cluster_size =  10 ,#c(10, 50, 500),         # individuals per cluster
+  icc          = 0.01, # c(0.01, 0.05, 0.1, 0.15, 0.2),       # intraclass correlation values
+  mu           = get_mu_range(prevalence = 0.05)[1],  # baseline μ values
+  model_type   = "blended" # link function type
 )
 
 # Inspect the full design grid
@@ -81,10 +82,14 @@ sim %<>% set_script(function() {
   
   # ---- Return simulation outputs -----------------------------------
   return(list(
-    delta_hat = res$delta_hat,  # estimated treatment effect
-    se        = res$se,         # standard error
-    conv      = res$conv        # convergence indicator
+    delta_hat   = res$delta_hat,
+    se          = res$se,
+    conv        = res$conv,
+    singular    = res$singular,
+    dropped_trt = res$dropped_trt,
+    err         = res$err
   ))
+  
 })
 
 # -------------------------------------------------------------------
@@ -93,9 +98,8 @@ sim %<>% set_script(function() {
 # num_sim : number of replications per scenario
 # packages: ensure lme4 is available to worker processes
 sim %<>% set_config(
-  num_sim  = 100,
-  packages = c("lme4"),
-  n_cores = 4
+  num_sim  = 10,
+  packages = c("lme4")
 )
 
 # Inspect simulation structure before running

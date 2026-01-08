@@ -1,179 +1,181 @@
 library(ggplot2)
+library(tidyverse)
 
-# plot 
-ggplot(summary_tbl,
-       aes(x = mu, y = conv_rate,
-           color = factor(icc),
-           linetype = factor(n_clusters))) +
-  geom_line() +
-  geom_point() +
-  facet_wrap(~ cluster_size) +
-  labs(x = "Baseline μ (log-odds)",
-       y = "Convergence Rate",
-       color = "ICC",
-       linetype = "Number of Clusters",
-       title = "Convergence rate across μ values") +
-  theme_minimal()
+# load in the summary table
 
-library(dplyr)
-library(ggplot2)
-
-# Filter to your scenario of interest
-plot_tbl <- summary_tbl %>%
-  dplyr::filter(n_clusters == 26,
-         cluster_size == 100,
-         icc == 0.01)
-
-# Make the plot
-ggplot(plot_tbl, aes(x = mu, y = conv_rate, group = model_type)) +
-  geom_line() +
-  geom_point(size = 2) +
-  labs(
-    title = "Convergence vs μ (n_clusters=100, cluster_size=100, ICC=0.05)",
-    x = "Baseline μ (log-odds)",
-    y = "Convergence rate"
-  ) +
-  theme_minimal()
+# summary_tbl
 
 
 
+# Convergence by MU (overall) ####
 
+# data manipulation
 
-
-
-
-#### Testing Plots 
-
-library(viridis)
-
-# optional: set a consistent minimal theme for all figures
-theme_pub <- theme_minimal(base_size = 14, base_family = "sans") +
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_line(color = "grey85", linewidth = 0.3),
-    axis.title = element_text(face = "bold"),
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 16),
-    legend.position = "right",
-    legend.box.background = element_rect(fill = "white", color = NA),
-    strip.background = element_rect(fill = "grey90", color = NA),
-    strip.text = element_text(face = "bold")
+conv_mu_tbl <- summary_tbl %>%
+  group_by(mu, model_type) %>%
+  summarise(
+    mean_conv_rate = mean(conv_rate, na.rm = TRUE),
+    .groups = "drop"
   )
 
+# Plot
 
-ggplot(data = summary_tbl, aes(
-  x = mu, y = conv_rate,
-  color = factor(icc),
-  linetype = factor(cluster_size),
-  group = interaction(icc, cluster_size)
-)) +
+ggplot(conv_mu_tbl,
+       aes(x = mu,
+           y = mean_conv_rate,
+           color = model_type,
+           group = model_type)) +
   geom_line(linewidth = 1) +
   geom_point(size = 2) +
-  facet_wrap(~ n_clusters, labeller = label_both, scales = "free_y") +
-  scale_color_viridis_d(name = "ICC") +
-  scale_linetype_manual(values = c("solid", "dashed", "dotdash", "twodash")) +
   labs(
     x = expression(mu),
-    y = "Convergence Rate",
-    title = expression("Convergence Rate by " * mu * " across ICC and Cluster Size")
+    y = "Mean Convergence Rate",
+    color = "Model Type",
+    title = "Model Convergence Rate vs Baseline Risk (μ)"
   ) +
-  coord_cartesian(ylim = c(0, 1)) +
-  theme_pub
+  theme_bw()
 
 
-ggplot(summary_tbl, aes(x = mu, y = factor(icc), fill = conv_rate)) +
-  geom_tile(color = "white", linewidth = 0.2) +
-  facet_grid(model_type ~ cluster_size + n_clusters, labeller = label_both) +
-  scale_fill_viridis_c(
-    name = "Convergence Rate",
-    option = "plasma",     # avoids yellow tones
-    limits = c(0, 1),
-    breaks = seq(0, 1, 0.2)
-  ) +
-  labs(
-    x = expression(mu),
-    y = "ICC",
-    title = expression("Heatmap of Convergence Rate across " * mu * ", ICC, and Model Type")
-  ) +
-  theme_pub +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    panel.grid = element_blank(),
-    strip.text.y = element_text(face = "bold"),
-    strip.text.x = element_text(face = "bold")
+
+# Convergence by MU (by cluster size)  ####
+
+# data manipulation
+
+conv_mu_tbl <- summary_tbl %>%
+  group_by(mu, model_type, n_clusters) %>%
+  summarise(
+    mean_conv_rate = mean(conv_rate, na.rm = TRUE),
+    .groups = "drop"
   )
 
+# Plot
 
-ggplot(summary_tbl, aes(
-  x = mu,
-  y = conv_rate,
-  color = factor(icc),
-  linetype = model_type,
-  group = interaction(icc, model_type)
-)) +
-  geom_smooth(se = FALSE, method = "loess", span = 0.8, linewidth = 1.2) +
-  facet_wrap(~ cluster_size, labeller = label_both, scales = "free_y") +
-  scale_linetype_manual(
-    name = "Model Type",
-    values = c("solid", "longdash", "dotdash", "dotted")
-  ) +
-  labs(
-    x = expression(mu),
-    y = "Convergence Rate",
-    title = expression("Smoothed Convergence Trends by Cluster Size, ICC, and Model Type")
-  ) +
-  coord_cartesian(ylim = c(0, 1)) +
-  theme_pub +
-  theme(
-    legend.position = "right",
-    legend.box = "vertical",
-    legend.title = element_text(face = "bold"),
-    legend.key.width = unit(1.2, "cm")
-  )
-
-
-library(ggplot2)
-library(dplyr)
-
-# Select log-link results only
-log_results <- summary_tbl %>%
-  filter(model_type == "log")
-
-# Pick 4 parameter sets to illustrate the range
-selected_sets <- log_results %>%
-  filter(
-    (n_clusters == 10 & cluster_size == 10 & icc == 0.01) |
-      (n_clusters == 100 & cluster_size == 10 & icc == 0.20) |
-      (n_clusters == 10 & cluster_size == 500 & icc == 0.05) |
-      (n_clusters == 100 & cluster_size == 100 & icc == 0.10)
-  ) %>%
-  mutate(
-    param_label = paste0(
-      "n_clusters=", n_clusters,
-      ", cluster_size=", cluster_size,
-      ", ICC=", icc
-    )
-  )
-
-# Plot them together, faceted by parameter set
-ggplot(selected_sets, aes(x = mu, y = conv_rate)) +
+ggplot(conv_mu_tbl,
+       aes(x = mu,
+           y = mean_conv_rate,
+           color = model_type,
+           group = model_type)) +
+  geom_line(linewidth = 1) +
   geom_point(size = 2) +
-  geom_line(linewidth = 0.9) +
-  facet_wrap(~ param_label, ncol = 2) +
+  facet_wrap(~ n_clusters)+
   labs(
-    title = "Convergence Rate vs μ (Log Link)",
     x = expression(mu),
-    y = "Convergence Rate"
+    y = "Mean Convergence Rate",
+    color = "Model Type",
+    title = "Model Convergence Rate vs Baseline Risk (μ)",
+    subtitle = "By N Clusters"
   ) +
-  theme_minimal(base_size = 13) +
-  theme(
-    strip.text = element_text(size = 10),
-    axis.text.x = element_text(angle = 45, hjust = 1)
+  theme_bw()
+
+# Convergence by MU (by n clusters)  ####
+
+# data manipulation
+
+conv_mu_tbl <- summary_tbl %>%
+  group_by(mu, model_type, n_clusters) %>%
+  summarise(
+    mean_conv_rate = mean(conv_rate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Plot
+
+ggplot(conv_mu_tbl,
+       aes(x = mu,
+           y = mean_conv_rate,
+           color = model_type,
+           group = model_type)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~ n_clusters)+
+  labs(
+    x = expression(mu),
+    y = "Mean Convergence Rate",
+    color = "Model Type",
+    title = "Model Convergence Rate vs Baseline Risk (μ)",
+    subtitle = "By N Clusters"
+  ) +
+  theme_bw()
+
+# Convergence by MU (by ICC)  ####
+
+# data manipulation
+
+conv_mu_tbl <- summary_tbl %>%
+  group_by(mu, model_type, icc) %>%
+  summarise(
+    mean_conv_rate = mean(conv_rate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Plot
+
+ggplot(conv_mu_tbl,
+       aes(x = mu,
+           y = mean_conv_rate,
+           color = model_type,
+           group = model_type)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~ icc)+
+  labs(
+    x = expression(mu),
+    y = "Mean Convergence Rate",
+    color = "Model Type",
+    title = "Model Convergence Rate vs Baseline Risk (μ)",
+    subtitle = "By ICC"
+  ) +
+  theme_bw()
+
+
+
+
+# Bias MSE and MAE ####
+
+metrics_tbl <- summary_tbl |>
+  group_by(icc, model_type) |>
+  summarise(
+    bias = mean(bias_delta, na.rm = TRUE),
+    mae  = mean(mae_est,  na.rm = TRUE),
+    mse  = mean(mse_est,  na.rm = TRUE),
+    .groups = "drop"
   )
 
 
+ggplot(metrics_tbl,
+       aes(x = icc, y = bias, color = model_type, group = model_type)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    x = "ICC",
+    y = "Mean Bias",
+    color = "Model Type",
+    title = "Bias vs ICC"
+  ) +
+  theme_bw()
 
+ggplot(metrics_tbl,
+       aes(x = icc, y = mae, color = model_type, group = model_type)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    x = "ICC",
+    y = "Mean Absolute Error (MAE)",
+    color = "Model Type",
+    title = "MAE vs ICC"
+  ) +
+  theme_bw()
 
-
-
-
+ggplot(metrics_tbl,
+       aes(x = icc, y = mse, color = model_type, group = model_type)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    x = "ICC",
+    y = "Mean Squared Error (MSE)",
+    color = "Model Type",
+    title = "MSE vs ICC"
+  ) +
+  theme_bw()
 

@@ -32,13 +32,17 @@ true_delta <- 0.5
 summary_tbl <- sim %>%
   SimEngine::summarize(
     list(stat = "bias",     estimate = "delta_hat", truth = true_delta,
-         name = "bias_delta", by = "model_type"),
+         name = "bias_delta", na.rm = TRUE),
     list(stat = "var",      x = "delta_hat",
-         name = "var_delta", by = "model_type"),
+         name = "var_delta", na.rm = TRUE),
     list(stat = "mse",      estimate = "delta_hat", truth = true_delta,
-         name = "mse_delta", by = "model_type"),
+         name = "mse_delta", na.rm = TRUE),
     list(stat = "coverage", estimate = "delta_hat", se = "se", truth = true_delta,
-         name = "ci_coverage", by = "model_type")
+         name = "ci_coverage", na.rm = TRUE),
+    list(stat="mae",        estimate="delta_hat", truth=true_delta,
+         name="mae_est", na.rm = TRUE),
+    list(stat="mse", estimate="delta_hat", truth=true_delta,
+         name="mse_est", na.rm=TRUE)
   )
 
 # ---------------------------------------------------------------------------
@@ -68,8 +72,8 @@ summary_tbl <- summary_tbl %>%
 # Output Summary
 # ---------------------------------------------------------------------------
 # View summarized results in console
-print(summary_tbl)
+# print(summary_tbl)
 
 # Optionally, save results to CSV for downstream analysis or plotting
-# write.csv(summary_tbl, "results/summary_tbl.csv", row.names = FALSE)
+# write.csv(summary_tbl, "Summaries/15_k0.9.csv", row.names = FALSE)
 ###############################################################################

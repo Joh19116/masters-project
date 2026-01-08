@@ -158,6 +158,4 @@ head(dat_binary)
 # shoot email to advisory panel last week of feb and first week of march using the meet thing
 # progress report not jan 16 or 19th
 
-
-# 2835 NA vlaues for delta hat in the data
-# However ther are 3059 error messages
+# So why need special method for generating data?

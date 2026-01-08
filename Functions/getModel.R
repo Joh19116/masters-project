@@ -51,7 +51,7 @@ analyze_glmm <- function(dat, tol_sing = 1e-4) {
     return(list(
       delta_hat   = NA_real_,
       se          = NA_real_,
-      conv        = NA_integer_,
+      conv        = NA,
       singular    = NA,
       dropped_trt = NA,
       err         = if (inherits(fit, "error")) conditionMessage(fit) else "fit was NULL/not glmerMod",
@@ -61,9 +61,10 @@ analyze_glmm <- function(dat, tol_sing = 1e-4) {
   
   # Diagnostics
   singular <- lme4::isSingular(fit, tol = tol_sing)
-  conv <- fit@optinfo$conv$opt
-  if (is.null(conv) || length(conv) == 0) conv <- NA_integer_
-  conv <- as.integer(conv)
+  
+  # clean convergence: TRUE if lme4 produced no convergence messages
+  conv <- is.null(fit@optinfo$conv$lme4$messages)
+  
   
   
   beta <- lme4::fixef(fit)
@@ -161,7 +162,7 @@ analyze_glmm_blended <- function(dat, K = log(0.9), tol_sing = 1e-4) {
     return(list(
       delta_hat = NA_real_,
       se        = NA_real_,
-      conv      = NA_integer_,
+      conv      = NA,
       singular  = NA,
       dropped_trt = NA,
       err       = if (inherits(fit, "error")) conditionMessage(fit) else "fit was NULL/not glmerMod",
@@ -171,9 +172,11 @@ analyze_glmm_blended <- function(dat, K = log(0.9), tol_sing = 1e-4) {
   
   # Diagnostics
   singular <- lme4::isSingular(fit, tol = tol_sing)
-  conv <- fit@optinfo$conv$opt
-  if (is.null(conv) || length(conv) == 0) conv <- NA_integer_
-  conv <- as.integer(conv)
+  
+  # clean convergence: TRUE if lme4 produced no convergence messages
+  conv <- is.null(fit@optinfo$conv$lme4$messages)
+  
+  
   
   
   # Extract treatment effect robustly (avoid summary() rowname assumptions)

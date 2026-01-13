@@ -56,17 +56,6 @@ conv_tbl <- sim$results %>%
 # Merge convergence results into the main summary table
 summary_tbl <- dplyr::left_join(summary_tbl, conv_tbl, by = "level_id")
 
-# ---------------------------------------------------------------------------
-# Optional: Compute Derived Quantities
-# ---------------------------------------------------------------------------
-# Compute τ (tau) from ICC and mean outcome prevalence for descriptive purposes.
-#   τ = sqrt(ICC / (1 - ICC))
-#   E[p] = exp(μ + ½τ²)
-summary_tbl <- summary_tbl %>%
-  mutate(
-    tau = sqrt(icc / (1 - icc)),
-    mean_outcome = exp(mu + 0.5 * tau^2)
-  )
 
 # ---------------------------------------------------------------------------
 # Output Summary

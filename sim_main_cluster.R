@@ -40,7 +40,7 @@ run_on_cluster(
       n_clusters   = c(10, 26, 76, 100),
       cluster_size = c(10, 20, 50, 100, 500),
       icc          = c(0.01, 0.05, 0.10, 0.15, 0.20),
-      mu           = get_mu_range(prevalence = 0.05, max_missing = 0.3),
+      mu           = get_mu_range(prevalence = 0.05, max_missing = 0.7),
       model_type   = c("log", "blended") 
     )
     

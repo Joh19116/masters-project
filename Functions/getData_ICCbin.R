@@ -4,7 +4,9 @@ tau_to_icc <- function(tau) {
   tau^2 / (1 + tau^2)
 }
 
+library(ICCbin)
+
 rho <- tau_to_icc(1)
 
 
-data <- rcbin(prop = 0.5, prvar = 0, noc = 20, csize = 10, csvar = 0.4, rho = rho)
+data2 <- rcbin(prop = 0.5, prvar = 0, noc = 20, csize = 10, csvar = 0.4, rho = rho)

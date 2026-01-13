@@ -179,3 +179,34 @@ ggplot(metrics_tbl,
   ) +
   theme_bw()
 
+
+
+# ------------------------------------------------------------
+# Table of Error Messages 
+# ------------------------------------------------------------
+library(dplyr)
+library(gt)
+
+error_table_by_model <- sim$results %>%
+  filter(!is.na(err)) %>%
+  count(model_type, err, name = "Frequency") %>%
+  group_by(model_type) %>%
+  mutate(
+    Percent = 100 * Frequency / sum(Frequency)
+  ) %>%
+  ungroup() %>%
+  arrange(model_type, desc(Frequency))
+
+error_table_by_model %>%
+  gt(
+    groupname_col = "model_type"
+  ) %>%
+  fmt_number(
+    columns = Percent,
+    decimals = 2
+  ) %>%
+  cols_label(
+    err = "Error Message",
+    Frequency = "Count",
+    Percent = "Percent (%)"
+  )
